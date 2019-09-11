@@ -1,0 +1,240 @@
+######Question 1: Collecting Data######
+
+#create my own credential JSON file in the current directory
+import json
+credentials={"CONSUMER_KEY" : "uZxHNVRfErT1BjkXSZ68hEIHr",
+ "CONSUMER_SECRET" : "KjC97NssJVe1T5UXZNQeuvDzh4LIGQLZJErO7I0yOMj8G41l3e",
+ "ACCESS_TOKEN" :  "932024509397266432-2ySBDZHhktgXaBytDI5g5I5pXAExufP",
+ "ACCESS_TOKEN_SECRET" : "T4WIGXwSsFeooYBNiCuzMSVqFpQ7FRH0NVyOHzo9R77fs"
+}
+with open('nipun_twitter_credentials','w') as f:
+    json.dump(credentials,f,indent=4)
+
+#generate stream data
+# from twython package import TwythonStreamer module
+#!pip install twython
+from twython import TwythonStreamer
+import sys
+# global variable to store tweets
+tweets = []
+# we are inheriting from TwythonStreamer class
+class MyStreamer(TwythonStreamer):
+    '''our own subclass of TwythonStreamer'''
+
+    # overriding
+    def on_success(self, data):
+        # check if the received tweet dictionary is in English
+        if 'lang' in data and data['lang'] == 'en':
+            tweets.append(data)
+            print('received tweet #', len(tweets), data['text'][:100])
+
+        # if we have enough tweets, store it into JSON file and disconnect API
+        if len(tweets) >= 500:
+            self.store_json()
+            self.disconnect()
+
+    # overriding
+    def on_error(self, status_code, data):
+        print(status_code, data)
+        self.disconnect()
+
+    # our new method to store tweets into JSON file
+    def store_json(self):
+        with open('tweet_stream_{}_{}.json'.format(keyword, len(tweets)), 'w') as f:
+            json.dump(tweets, f, indent=4)
+
+# check if we are running this code as top-level module
+if __name__ == '__main__':
+
+    #with open('your_twitter_credentials.json', 'r') as f:
+    with open('nipun_twitter_credentials', 'r') as f:
+        credentials = json.load(f)
+
+    # create your own app to get consumer key and secret
+    CONSUMER_KEY = credentials['CONSUMER_KEY']
+    CONSUMER_SECRET = credentials['CONSUMER_SECRET']
+    ACCESS_TOKEN = credentials['ACCESS_TOKEN']
+    ACCESS_TOKEN_SECRET = credentials['ACCESS_TOKEN_SECRET']
+
+    # Twitter Streaming API needs all four credentials
+    stream = MyStreamer(CONSUMER_KEY, CONSUMER_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+
+    # we will get system arguments to get keyword
+    # you can run this code by:
+    # python 3_test_twitter_stream.py MyKeyword
+    if len(sys.argv) > 1:
+        keyword = sys.argv[1]
+    else:
+        keyword = 'bitcoin'
+
+    # Github Code: https://github.com/ryanmcgrath/twython/blob/master/twython/streaming/types.py
+    # Accepted parameters: https://developer.twitter.com/en/docs/tweets/filter-realtime/api-reference/post-statuses-filter
+    stream.statuses.filter(track=keyword)
+
+
+
+######Question 2 part a: 10 most popular words in all the tweets######
+#import text from the json list.
+#rawlist is a list of dictionaries; each dictionary is for one tweet\
+import json
+with open('tweet_stream_bitcoin_10000.json','r') as f:
+    rawlist=json.load(f)
+#get the text of each tweet from the rawlist as a string
+textstr=''
+for dic in rawlist:
+    textstr+=dic['text']   #for each dictionary, use 'text' as the keyword to get the tweet text
+#remove punctuation and digits
+import string
+p = string.punctuation
+d = string.digits
+table_p = str.maketrans(p, len(p) * " ")
+table_d = str.maketrans(d, len(d) * " ")
+textstr=textstr.translate(table_p).translate(table_d)
+
+#remove stopwords
+import nltk
+stopwords=nltk.corpus.stopwords.words('english')
+#add some meaningless words as 'https' to the stopwords list
+mystopwords=stopwords+['https','co','rt','the','will','btc','amp','get']
+textlist_no_stop=[w for w in textstr.lower().split() if w not in mystopwords and len(w) > 1]
+
+#get the frequency based on the list of words    
+textlist=nltk.word_tokenize(textstr.lower()) #turn textstr into a list
+freq=nltk.FreqDist(textlist)
+freq.plot(10)
+freq_no_stop=nltk.FreqDist(textlist_no_stop)
+freq_no_stop.plot(10)
+
+#additional analysis: focus on verb(vb),noun(nn) and adj(jj)
+tag=nltk.pos_tag(textlist_no_stop)
+textlist_tag=[i[0] for i in tag if i[1]=='JJ' or 'VB' or 'NN']
+freq_tag=nltk.FreqDist(textlist_tag)
+freq_tag.plot(10)
+
+######Question 2 part b: 10 most popular hashtags in all the tweets######
+#get hashtags list
+hashtaglist=[]
+for dic in rawlist:
+    if dic['entities']['hashtags']!=[]:
+        for dic2 in dic['entities']['hashtags']:
+            hashtaglist.append(dic2['text'].lower())
+#get the frequency of hashtags
+freq=nltk.FreqDist(hashtaglist)   
+freq.plot(10)        
+
+######Question 2 part c: 10 most frequently appearing usernames in all the tweets######
+#get user_mention list
+usermention_list=[]
+for dic in rawlist:
+    if dic['entities']['user_mentions']!=[]:
+        for dic2 in dic['entities']['user_mentions']:
+            usermention_list.append(dic2['name'])
+#get the frequency of user_mention
+freq=nltk.FreqDist(usermention_list)   
+freq.plot(10) 
+
+######Question 2 part d: 10 most frequently tweeting person in all the tweets######
+#get user_mention list
+user_list=[]
+for dic in rawlist:
+    user_list.append(dic['user']['name'].upper())
+#get the frequency of user_mention
+freq=nltk.FreqDist(user_list)   
+freq.plot(10)
+
+######Question 2 part e: most influential tweet in all the tweets######
+#get retweeting count dic with count as keys and text as values
+retweet_dic={}
+for dic in rawlist:
+    if 'retweeted_status' in dic:
+        retweet_dic[dic['retweeted_status']['retweet_count']+
+                   dic['retweeted_status']['quote_count']+
+                   dic['retweeted_status']['reply_count']]=dic['retweeted_status']['text']
+#get the most influential tweet
+max_count=max(retweet_dic.keys())
+favor_tweet=retweet_dic[max_count]
+print('The most influential tweet: '+favor_tweet)
+
+#the most influential tweet in my 10,000 sample.
+#get the id list in my sample
+id_list=[]
+for dic in rawlist:
+    id_list.append(dic['id'])
+#create dictionary if the id is in id_list
+retweet_dic_insample={}
+for dic in rawlist:
+    if 'retweeted_status' in dic and dic['retweeted_status']['id'] in id_list:
+        retweet_dic_insample[dic['retweeted_status']['retweet_count']+
+                   dic['retweeted_status']['quote_count']+
+                   dic['retweeted_status']['reply_count']]=dic['retweeted_status']['text']
+#get the most influential tweet in my sample
+max_count_insample=max(retweet_dic_insample.keys())
+favor_tweet_insample=retweet_dic_insample[max_count_insample]
+print('The most influential tweet in my sample: '+favor_tweet_insample)
+
+
+######Question 3: Wordcloud######
+#stemming using snowball
+from nltk.stem.snowball import SnowballStemmer
+ss=SnowballStemmer("english")
+#wordcloud
+#! pip install wordcloud
+from PIL import Image
+import numpy as np
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+
+bull_mask=np.array(Image.open('blackbull.jpg')) #set the shape for mask
+wordcloud1=WordCloud(background_color="white",max_font_size=80).generate_from_frequencies(freq_no_stop)
+wordcloud2=WordCloud(background_color="white",max_font_size=100,mask=bull_mask).generate_from_frequencies(freq_no_stop)
+plt.figure()
+plt.imshow(wordcloud1)
+plt.axis("off")
+plt.show()
+plt.figure()
+plt.imshow(wordcloud2)
+plt.axis("off")
+plt.show()
+
+
+
+
+
+######Qustion 4: sentiment analysis######
+#sentiment analysis using textblob
+#!pip install textblob
+from textblob import TextBlob
+polarity=[]
+subjectivity=[]
+for dic in rawlist:
+    t=dic['text'].translate(table_p).translate(table_d)
+    tb_pos=TextBlob(t)
+    polarity.append(tb_pos.sentiment.polarity)
+    subjectivity.append(tb_pos.sentiment.subjectivity)
+    
+#summarize the score using matplotlib
+import matplotlib.pyplot as plt
+
+plt.hist(polarity, bins=20) #, normed=1, alpha=0.75)
+plt.xlabel('polarity score')
+plt.ylabel('tweet count')
+plt.grid(True)
+plt.savefig('polarity.pdf')
+plt.show()
+
+plt.hist(subjectivity, bins=20) #, normed=1, alpha=0.75)
+plt.xlabel('subjectivity score')
+plt.ylabel('tweet count')
+plt.grid(True)
+plt.savefig('subjectivity.pdf')
+plt.show()
+
+mean_polarity=sum(polarity)/len(polarity)
+mean_subjectivity=sum(subjectivity)/len(subjectivity)
+print('mean polarity = '+str(mean_polarity))
+print('mean subjectivity = '+str(mean_subjectivity))
+
+#get a 1,000 sample
+sample=rawlist[0:1000]
+with open('tweet_stream_sample_1000.json', 'w') as f:
+            json.dump(sample, f, indent=4)
