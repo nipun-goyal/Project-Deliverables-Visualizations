@@ -2,10 +2,10 @@
 
 #create my own credential JSON file in the current directory
 import json
-credentials={"CONSUMER_KEY" : "uZxHNVRfErT1BjkXSZ68hEIHr",
- "CONSUMER_SECRET" : "KjC97NssJVe1T5UXZNQeuvDzh4LIGQLZJErO7I0yOMj8G41l3e",
- "ACCESS_TOKEN" :  "932024509397266432-2ySBDZHhktgXaBytDI5g5I5pXAExufP",
- "ACCESS_TOKEN_SECRET" : "T4WIGXwSsFeooYBNiCuzMSVqFpQ7FRH0NVyOHzo9R77fs"
+credentials={"CONSUMER_KEY" : "",
+ "CONSUMER_SECRET" : "",
+ "ACCESS_TOKEN" :  "",
+ "ACCESS_TOKEN_SECRET" : ""
 }
 with open('nipun_twitter_credentials','w') as f:
     json.dump(credentials,f,indent=4)
